@@ -10,6 +10,7 @@ import Carbon
 import Foundation
 import AppKit
 import IOKit.hid
+import ServiceManagement
 
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -18,6 +19,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let longPressThreshold: TimeInterval = 0.2;
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // launch at login
+        launchAtLogin()
+        
         // Create a status bar item with a system icon
         statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusBarItem?.button?.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
@@ -29,6 +33,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Hide Icon", action: #selector(hideStatusBarIcon), keyEquivalent: "")
         menu.addItem(withTitle: "Exit", action: #selector(exitAction), keyEquivalent: "")
         statusBarItem?.menu = menu
+        
+        // hide menu bar if the button was pressed once
+        let userDefaults = UserDefaults.standard
+        if userDefaults.bool(forKey: "hideStatusBarIcon") {
+            statusBarItem?.isVisible = false
+        }
         
         NSApp.setActivationPolicy(.accessory)
         NSApp.hide(nil)
@@ -93,6 +103,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         aboutWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+    
+    @objc func launchAtLogin() {
+        if #available(macOS 13.0, *) {
+            do {
+                if SMAppService.mainApp.status == .enabled {
+                    // do nothing
+                    print("Login item already registered.")
+                } else {
+                    try SMAppService.mainApp.register()
+                }
+            } catch {
+                print("Failed to enable login item: \(error)")
+            }
+        } else {
+            // Fallback on earlier versions
+            print("Login item functionality is not available on this version of macOS.")
+        }
+    }
 
 
     @objc func openGitHub() {
@@ -138,6 +166,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc func hideStatusBarIcon() {
         statusBarItem?.isVisible = false
+        let userDefaults = UserDefaults.standard
+        userDefaults.set(true, forKey: "hideStatusBarIcon")
+        UserDefaults.standard.synchronize()
     }
     
     @objc func exitAction() {
